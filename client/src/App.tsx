@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { DragDropContext, DropResult } from "@hello-pangea/dnd";
-import { Task, Session } from "./types/task";
+import { Task, TaskStatus, Session } from "./types/task";
 import { TaskDetailDialog } from "./components/TaskDetailDialog";
 import { TaskCreateDialog } from "./components/TaskCreateDialog";
 import { KanbanColumn } from "./components/KanbanColumn";
@@ -14,6 +14,15 @@ interface HealthStatus {
     redis: string;
   };
 }
+
+// Column configuration for the 5-column Kanban
+const COLUMNS: { status: TaskStatus; title: string }[] = [
+  { status: 'backlog', title: 'Backlog' },
+  { status: 'pending', title: 'To Do' },
+  { status: 'in_progress', title: 'In Progress' },
+  { status: 'blocked', title: 'Blocked' },
+  { status: 'completed', title: 'Done' },
+];
 
 function App() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
@@ -125,7 +134,24 @@ function App() {
     }
   };
 
-  const handleDragEnd = (result: DropResult) => {
+  const updateTaskStatus = async (taskId: string, newStatus: TaskStatus) => {
+    try {
+      const response = await fetch(`/api/v1/sessions/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update task status');
+      }
+      return true;
+    } catch (err) {
+      console.error('Error updating task status:', err);
+      return false;
+    }
+  };
+
+  const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
 
     // If dropped outside of a droppable area
@@ -141,32 +167,35 @@ function App() {
       return;
     }
 
-    // Reorder tasks within the same column (for now)
-    // Full cross-column drag-drop would require status update via API
-    if (destination.droppableId === source.droppableId) {
-      const status = source.droppableId as 'pending' | 'in_progress' | 'completed';
-      const columnTasks = tasks.filter(t => t.status === status);
-      const draggedTask = columnTasks.find(t => t.id === draggableId);
+    const sourceStatus = source.droppableId as TaskStatus;
+    const destStatus = destination.droppableId as TaskStatus;
+    const draggedTask = tasks.find(t => t.id === draggableId);
 
-      if (draggedTask) {
-        const newTasks = columnTasks.filter(t => t.id !== draggableId);
-        newTasks.splice(destination.index, 0, draggedTask);
+    if (!draggedTask) return;
 
-        const updatedTasks = tasks.map(t => {
-          if (t.status === status) {
-            return { ...t };
-          }
-          return t;
-        });
+    // Cross-column drag: update status via API
+    if (sourceStatus !== destStatus) {
+      // Optimistic update
+      const previousTasks = [...tasks];
+      setTasks(prev => prev.map(t => 
+        t.id === draggableId ? { ...t, status: destStatus } : t
+      ));
 
-        setTasks(updatedTasks);
+      // Call API
+      const success = await updateTaskStatus(draggableId, destStatus);
+      if (!success) {
+        // Rollback on failure
+        setTasks(previousTasks);
       }
     }
   };
 
-  const pendingTasks = tasks.filter(t => t.status === 'pending');
-  const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
-  const completedTasks = tasks.filter(t => t.status === 'completed');
+  // Get tasks for each column, sorted by priority (lower number = higher priority)
+  const getColumnTasks = (status: TaskStatus) => {
+    return tasks
+      .filter(t => t.status === status)
+      .sort((a, b) => a.priority - b.priority);
+  };
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
@@ -178,7 +207,7 @@ function App() {
         isLoading={tasksLoading}
       />
 
-      <main className="flex-1 overflow-hidden p-4">
+      <main className="flex-1 overflow-x-auto overflow-y-hidden p-4">
         {error && (
           <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
             Error: {error}
@@ -186,28 +215,17 @@ function App() {
         )}
 
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-3 gap-4 h-full">
-            <KanbanColumn
-              status="pending"
-              tasks={pendingTasks}
-              totalTasks={tasks.length}
-              onTaskClick={handleTaskClick}
-              onTaskDelete={handleQuickDelete}
-            />
-            <KanbanColumn
-              status="in_progress"
-              tasks={inProgressTasks}
-              totalTasks={tasks.length}
-              onTaskClick={handleTaskClick}
-              onTaskDelete={handleQuickDelete}
-            />
-            <KanbanColumn
-              status="completed"
-              tasks={completedTasks}
-              totalTasks={tasks.length}
-              onTaskClick={handleTaskClick}
-              onTaskDelete={handleQuickDelete}
-            />
+          <div className="flex gap-4 h-full min-w-max">
+            {COLUMNS.map(({ status }) => (
+              <KanbanColumn
+                key={status}
+                status={status}
+                tasks={getColumnTasks(status)}
+                totalTasks={tasks.length}
+                onTaskClick={handleTaskClick}
+                onTaskDelete={handleQuickDelete}
+              />
+            ))}
           </div>
         </DragDropContext>
       </main>

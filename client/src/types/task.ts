@@ -1,4 +1,4 @@
-export type TaskStatus = 'pending' | 'in_progress' | 'completed';
+export type TaskStatus = 'backlog' | 'pending' | 'in_progress' | 'blocked' | 'completed';
 
 export interface TaskFile {
   id: string;

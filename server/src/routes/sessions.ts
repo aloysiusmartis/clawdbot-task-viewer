@@ -378,9 +378,12 @@ router.post("/:sessionKey/tasks", async (req, res) => {
 router.patch("/tasks/:taskId", async (req, res) => {
   try {
     const { taskId } = req.params;
-    const { subject, description, priority } = req.body;
+    const { subject, description, priority, status } = req.body;
 
-    // First, verify the task exists and is in pending status
+    // Valid statuses for the 5-column Kanban
+    const validStatuses = ['backlog', 'pending', 'in_progress', 'blocked', 'completed'];
+
+    // First, verify the task exists
     const taskCheck = await query<Task>(
       "SELECT id, status FROM tasks WHERE id = $1",
       [taskId]
@@ -392,9 +395,13 @@ router.patch("/tasks/:taskId", async (req, res) => {
       });
     }
 
-    if (taskCheck.rows[0].status !== "pending") {
+    const currentStatus = taskCheck.rows[0].status;
+
+    // For content edits (subject, description, priority), only allow on non-completed tasks
+    if ((subject !== undefined || description !== undefined || priority !== undefined) 
+        && currentStatus === "completed") {
       return res.status(400).json({
-        error: "Only pending tasks can be edited",
+        error: "Completed tasks cannot be edited (status change only)",
       });
     }
 
@@ -419,6 +426,26 @@ router.patch("/tasks/:taskId", async (req, res) => {
       updates.push(`priority = $${paramCount}`);
       params.push(priority);
       paramCount++;
+    }
+
+    if (status !== undefined) {
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({
+          error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+        });
+      }
+      updates.push(`status = $${paramCount}`);
+      params.push(status);
+      paramCount++;
+
+      // If marking as completed, set completed_at
+      if (status === 'completed' && currentStatus !== 'completed') {
+        updates.push(`completed_at = NOW()`);
+      }
+      // If un-completing, clear completed_at
+      if (status !== 'completed' && currentStatus === 'completed') {
+        updates.push(`completed_at = NULL`);
+      }
     }
 
     if (updates.length === 0) {
