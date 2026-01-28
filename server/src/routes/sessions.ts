@@ -41,6 +41,114 @@ router.get("/", async (_req, res) => {
   }
 });
 
+// GET /api/v1/tasks/search - Search historical tasks from the last 30 days
+router.get("/search/query", async (req, res) => {
+  try {
+    const {
+      q,
+      status,
+      priority,
+      session_key,
+      sort = "created_at",
+      order = "DESC",
+    } = req.query;
+
+    // Build dynamic query
+    const whereConditions = [
+      "tasks.created_at >= NOW() - INTERVAL '30 days'",
+    ];
+    const params: unknown[] = [];
+    let paramCount = 1;
+
+    // Add search query filter
+    if (q && typeof q === "string" && q.trim()) {
+      whereConditions.push(
+        `(tasks.subject ILIKE $${paramCount} OR tasks.description ILIKE $${paramCount})`
+      );
+      params.push(`%${q}%`);
+      paramCount++;
+    }
+
+    // Add status filter
+    if (status && typeof status === "string") {
+      whereConditions.push(`tasks.status = $${paramCount}`);
+      params.push(status);
+      paramCount++;
+    }
+
+    // Add priority filter
+    if (priority !== undefined && priority !== "") {
+      whereConditions.push(`tasks.priority = $${paramCount}`);
+      params.push(parseInt(priority as string));
+      paramCount++;
+    }
+
+    // Add session_key filter
+    if (session_key && typeof session_key === "string") {
+      whereConditions.push(`sessions.session_key = $${paramCount}`);
+      params.push(session_key);
+      paramCount++;
+    }
+
+    // Validate sort field to prevent SQL injection
+    const validSortFields = [
+      "created_at",
+      "updated_at",
+      "priority",
+      "subject",
+      "status",
+    ];
+    const sortField = validSortFields.includes(sort as string)
+      ? (sort as string)
+      : "created_at";
+
+    // Validate order
+    const sortOrder =
+      order === "ASC" || order === "asc" ? "ASC" : "DESC";
+
+    // Execute search query
+    const tasksResult = await query<
+      Task & {
+        session_key: string;
+        session_name: string | null;
+      }
+    >(
+      `SELECT
+        tasks.id,
+        tasks.session_id,
+        tasks.task_number,
+        tasks.subject,
+        tasks.description,
+        tasks.active_form,
+        tasks.status,
+        tasks.priority,
+        tasks.blocks,
+        tasks.blocked_by,
+        tasks.metadata,
+        tasks.created_at,
+        tasks.updated_at,
+        tasks.completed_at,
+        sessions.session_key,
+        sessions.name as session_name
+      FROM tasks
+      JOIN sessions ON tasks.session_id = sessions.id
+      WHERE ${whereConditions.join(" AND ")}
+      ORDER BY tasks.${sortField} ${sortOrder}`,
+      params
+    );
+
+    return res.json({
+      tasks: tasksResult.rows,
+      count: tasksResult.rows.length,
+    });
+  } catch (error) {
+    console.error("Error searching tasks:", error);
+    return res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
 // GET /api/v1/sessions/:sessionKey/tasks - Fetch all tasks for a session
 router.get("/:sessionKey/tasks", async (req, res) => {
   try {
