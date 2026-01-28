@@ -7,6 +7,7 @@ interface KanbanColumnProps {
   tasks: Task[];
   totalTasks: number;
   onTaskClick: (task: Task) => void;
+  onTaskDelete?: (taskId: string) => void;
 }
 
 export function KanbanColumn({
@@ -14,6 +15,7 @@ export function KanbanColumn({
   tasks,
   totalTasks,
   onTaskClick,
+  onTaskDelete,
 }: KanbanColumnProps) {
   const count = tasks.length;
   const percentage = totalTasks > 0 ? Math.round((count / totalTasks) * 100) : 0;
@@ -66,6 +68,8 @@ export function KanbanColumn({
                         <TaskCard
                           task={task}
                           onClick={() => onTaskClick(task)}
+                          onEdit={() => onTaskClick(task)}
+                          onDelete={onTaskDelete ? () => onTaskDelete(task.id) : undefined}
                         />
                       </div>
                     )}

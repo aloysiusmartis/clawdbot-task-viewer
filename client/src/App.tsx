@@ -110,6 +110,23 @@ function App() {
     setSelectedTask(null);
   };
 
+  const handleQuickDelete = async (taskId: string) => {
+    if (!window.confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      const response = await fetch(`/api/v1/tasks/${taskId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete task');
+      }
+      fetchAllTasks();
+    } catch (err) {
+      console.error('Error deleting task:', err);
+    }
+  };
+
   const handleDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
 
@@ -232,18 +249,21 @@ function App() {
                   tasks={pendingTasks}
                   totalTasks={tasks.length}
                   onTaskClick={handleTaskClick}
+                  onTaskDelete={handleQuickDelete}
                 />
                 <KanbanColumn
                   status="in_progress"
                   tasks={inProgressTasks}
                   totalTasks={tasks.length}
                   onTaskClick={handleTaskClick}
+                  onTaskDelete={handleQuickDelete}
                 />
                 <KanbanColumn
                   status="completed"
                   tasks={completedTasks}
                   totalTasks={tasks.length}
                   onTaskClick={handleTaskClick}
+                  onTaskDelete={handleQuickDelete}
                 />
               </div>
             </DragDropContext>
