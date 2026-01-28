@@ -10,9 +10,10 @@ interface TaskDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onTaskUpdated?: (task: Task) => void;
+  onTaskDeleted?: (taskId: string) => void;
 }
 
-export function TaskDetailDialog({ task, allTasks, open, onOpenChange, onTaskUpdated }: TaskDetailDialogProps) {
+export function TaskDetailDialog({ task, allTasks, open, onOpenChange, onTaskUpdated, onTaskDeleted }: TaskDetailDialogProps) {
   const [files, setFiles] = useState<TaskFile[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
   const [filesError, setFilesError] = useState<string | null>(null);
@@ -216,6 +217,7 @@ export function TaskDetailDialog({ task, allTasks, open, onOpenChange, onTaskUpd
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}
           onTaskUpdated={handleTaskUpdated}
+          onTaskDeleted={onTaskDeleted}
           files={files}
           onFilesUpdated={handleFilesUpdated}
         />

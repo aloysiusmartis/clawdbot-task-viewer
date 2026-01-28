@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { Task } from "./types/task";
+import { useEffect, useState, useCallback } from "react";
+import { Task, Session } from "./types/task";
 import { TaskCard } from "./components/TaskCard";
 import { TaskDetailDialog } from "./components/TaskDetailDialog";
 import { TaskCreateDialog } from "./components/TaskCreateDialog";
 import { SessionsSidebar } from "./components/SessionsSidebar";
 import { TaskSearch } from "./components/TaskSearch";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 
 interface HealthStatus {
   status: string;
@@ -16,98 +16,58 @@ interface HealthStatus {
   };
 }
 
-// Mock tasks with dependencies for demonstration
-const mockTasks: Task[] = [
-  {
-    id: "task-1",
-    session_id: "session-1",
-    task_number: 1,
-    subject: "Setup database schema",
-    description: "Create initial database tables and indexes",
-    active_form: null,
-    status: "completed",
-    priority: 2,
-    blocks: ["task-2", "task-3"],
-    blocked_by: [],
-    metadata: {},
-    created_at: "2026-01-27T10:00:00Z",
-    updated_at: "2026-01-27T11:00:00Z",
-    completed_at: "2026-01-27T11:00:00Z",
-  },
-  {
-    id: "task-2",
-    session_id: "session-1",
-    task_number: 2,
-    subject: "Implement API endpoints",
-    description: "Create REST API endpoints for task management",
-    active_form: "Implementing API endpoints",
-    status: "in_progress",
-    priority: 3,
-    blocks: ["task-4"],
-    blocked_by: ["task-1"],
-    metadata: {},
-    created_at: "2026-01-27T10:30:00Z",
-    updated_at: "2026-01-27T12:00:00Z",
-    completed_at: null,
-  },
-  {
-    id: "task-3",
-    session_id: "session-1",
-    task_number: 3,
-    subject: "Add authentication middleware",
-    description: "Implement JWT-based authentication",
-    active_form: null,
-    status: "pending",
-    priority: 1,
-    blocks: [],
-    blocked_by: ["task-1"],
-    metadata: {},
-    created_at: "2026-01-27T10:45:00Z",
-    updated_at: "2026-01-27T10:45:00Z",
-    completed_at: null,
-  },
-  {
-    id: "task-4",
-    session_id: "session-1",
-    task_number: 4,
-    subject: "Build frontend UI components",
-    description: "Create React components for task visualization",
-    active_form: null,
-    status: "pending",
-    priority: 2,
-    blocks: [],
-    blocked_by: ["task-2"],
-    metadata: {},
-    created_at: "2026-01-27T11:00:00Z",
-    updated_at: "2026-01-27T11:00:00Z",
-    completed_at: null,
-  },
-  {
-    id: "task-5",
-    session_id: "session-1",
-    task_number: 5,
-    subject: "Write unit tests",
-    description: "Add test coverage for all components",
-    active_form: null,
-    status: "pending",
-    priority: 1,
-    blocks: [],
-    blocked_by: [],
-    metadata: {},
-    created_at: "2026-01-27T11:15:00Z",
-    updated_at: "2026-01-27T11:15:00Z",
-    completed_at: null,
-  },
-];
-
 function App() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [tasks, setTasks] = useState(mockTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [selectedSession, _setSelectedSession] = useState<string | null>(null);
 
+  // Fetch all tasks from all sessions
+  const fetchAllTasks = useCallback(async () => {
+    try {
+      setTasksLoading(true);
+      
+      // First get all sessions
+      const sessionsRes = await fetch("/api/v1/sessions");
+      if (!sessionsRes.ok) throw new Error("Failed to fetch sessions");
+      const sessionsData = await sessionsRes.json();
+      const sessions: Session[] = sessionsData.sessions || [];
+
+      // If a session is selected, only fetch tasks for that session
+      if (selectedSession) {
+        const tasksRes = await fetch(`/api/v1/sessions/${selectedSession}/tasks`);
+        if (!tasksRes.ok) throw new Error("Failed to fetch tasks");
+        const tasksData = await tasksRes.json();
+        setTasks(tasksData.tasks || []);
+      } else {
+        // Fetch tasks from all sessions
+        const allTasks: Task[] = [];
+        for (const session of sessions) {
+          try {
+            const tasksRes = await fetch(`/api/v1/sessions/${session.session_key}/tasks`);
+            if (tasksRes.ok) {
+              const tasksData = await tasksRes.json();
+              allTasks.push(...(tasksData.tasks || []));
+            }
+          } catch {
+            console.warn(`Failed to fetch tasks for session ${session.session_key}`);
+          }
+        }
+        setTasks(allTasks);
+      }
+    } catch (err) {
+      console.error("Error fetching tasks:", err);
+      setTasks([]);
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [selectedSession]);
+
+  // Fetch health status
   useEffect(() => {
     fetch("/api/health")
       .then((res) => res.json())
@@ -115,19 +75,38 @@ function App() {
       .catch((err: Error) => setError(err.message));
   }, []);
 
+  // Fetch tasks on mount and when session changes
+  useEffect(() => {
+    fetchAllTasks();
+  }, [fetchAllTasks]);
+
+  // Poll for task updates every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchAllTasks, 5000);
+    return () => clearInterval(interval);
+  }, [fetchAllTasks]);
+
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
     setDialogOpen(true);
   };
 
   const handleTaskUpdated = (updatedTask: Task) => {
-    // Update the selected task
+    // Update the selected task and refresh list
     setSelectedTask(updatedTask);
+    setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
   };
 
   const handleTaskCreated = (newTask: Task) => {
-    // Add the new task to the tasks list
-    setTasks([...tasks, newTask]);
+    // Add the new task and refresh
+    setTasks(prev => [...prev, newTask]);
+    fetchAllTasks();
+  };
+
+  const handleTaskDeleted = () => {
+    fetchAllTasks();
+    setDialogOpen(false);
+    setSelectedTask(null);
   };
 
   const pendingTasks = tasks.filter(t => t.status === 'pending');
@@ -150,14 +129,28 @@ function App() {
         <main className="flex-1 overflow-y-auto px-4 py-8 max-w-6xl">
         <div className="grid gap-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Tasks</h2>
-            <button
-              onClick={() => setCreateDialogOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              New Task
-            </button>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-semibold">Tasks</h2>
+              {tasksLoading && (
+                <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => fetchAllTasks()}
+                className="flex items-center gap-2 px-3 py-2 border rounded-md hover:bg-muted text-sm"
+                title="Refresh tasks"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setCreateDialogOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                New Task
+              </button>
+            </div>
           </div>
           <TaskSearch onTaskSelect={handleTaskClick} />
 
@@ -256,6 +249,7 @@ function App() {
             open={dialogOpen}
             onOpenChange={setDialogOpen}
             onTaskUpdated={handleTaskUpdated}
+            onTaskDeleted={handleTaskDeleted}
           />
 
           <TaskCreateDialog

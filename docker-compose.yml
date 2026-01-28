@@ -10,12 +10,18 @@ services:
       - PORT=3456
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/taskviewer
       - REDIS_URL=redis://redis:6379
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-}
+      - NGROK_EXTERNAL=true
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3456/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   postgres:
@@ -48,6 +54,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: http app:3456 --log stdout
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-}
+    ports:
+      - "4040:4040"
+    depends_on:
+      app:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

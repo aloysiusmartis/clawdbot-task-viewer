@@ -74,13 +74,18 @@ async function start(): Promise<void> {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
       
-      // Initialize Ngrok tunnel
-      try {
-        const tunnelUrl = await initializeTunnel(PORT);
-        console.log(`📡 Application is publicly accessible at: ${tunnelUrl}`);
-      } catch (error) {
-        console.warn("⚠️  Ngrok tunnel failed to start:", error);
-        console.log("📍 Application is only accessible locally");
+      // Initialize Ngrok tunnel (skip if NGROK_EXTERNAL=true, meaning external container handles it)
+      if (process.env.NGROK_EXTERNAL !== "true") {
+        try {
+          const tunnelUrl = await initializeTunnel(PORT);
+          console.log(`📡 Application is publicly accessible at: ${tunnelUrl}`);
+        } catch (error) {
+          console.warn("⚠️  Ngrok tunnel failed to start:", error);
+          console.log("📍 Application is only accessible locally");
+        }
+      } else {
+        console.log("📡 External ngrok container handles tunneling");
+        console.log("🔗 Check ngrok dashboard at http://localhost:4040");
       }
     });
 

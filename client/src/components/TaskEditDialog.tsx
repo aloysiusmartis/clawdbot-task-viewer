@@ -8,6 +8,7 @@ interface TaskEditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onTaskUpdated: (task: Task) => void;
+  onTaskDeleted?: (taskId: string) => void;
   files: TaskFile[];
   onFilesUpdated: (files: TaskFile[]) => void;
 }
@@ -17,6 +18,7 @@ export function TaskEditDialog({
   open,
   onOpenChange,
   onTaskUpdated,
+  onTaskDeleted,
   files,
   onFilesUpdated,
 }: TaskEditDialogProps) {
@@ -34,8 +36,8 @@ export function TaskEditDialog({
 
     try {
       // Update task
-      const response = await fetch(`/api/v1/tasks/${task.id}`, {
-        method: 'PUT',
+      const response = await fetch(`/api/v1/sessions/tasks/${task.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           subject: subject.trim(),
@@ -48,7 +50,8 @@ export function TaskEditDialog({
         throw new Error('Failed to update task');
       }
 
-      const updatedTask: Task = await response.json();
+      const data = await response.json();
+      const updatedTask: Task = data.task;
       onTaskUpdated(updatedTask);
 
       // Handle file upload if a file was selected
@@ -106,7 +109,7 @@ export function TaskEditDialog({
     setError(null);
 
     try {
-      const response = await fetch(`/api/v1/tasks/${task.id}`, {
+      const response = await fetch(`/api/v1/sessions/tasks/${task.id}`, {
         method: 'DELETE',
       });
 
@@ -115,8 +118,10 @@ export function TaskEditDialog({
       }
 
       onOpenChange(false);
-      // Close and signal deletion to parent
-      // Parent component will handle the refresh/task removal
+      // Notify parent that task was deleted
+      if (onTaskDeleted) {
+        onTaskDeleted(task.id);
+      }
     } catch (err) {
       console.error('Error deleting task:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete task');
