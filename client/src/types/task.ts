@@ -1,3 +1,5 @@
+export type TaskStatus = 'pending' | 'in_progress' | 'completed';
+
 export interface Task {
   id: string;
   session_id: string;
@@ -5,7 +7,7 @@ export interface Task {
   subject: string;
   description: string | null;
   active_form: string | null;
-  status: 'pending' | 'in_progress' | 'completed';
+  status: TaskStatus;
   priority: number;
   blocks: string[];
   blocked_by: string[];

@@ -4,6 +4,43 @@ import type { Task } from "../types/task.js";
 
 const router = express.Router();
 
+interface Session {
+  id: string;
+  session_key: string;
+  name: string;
+  project_path: string | null;
+  created_at: string;
+  updated_at: string;
+  last_activity_at: string;
+}
+
+// GET /api/v1/sessions - Fetch all active sessions
+router.get("/", async (_req, res) => {
+  try {
+    const sessionsResult = await query<Session>(
+      `SELECT
+        id,
+        session_key,
+        name,
+        project_path,
+        created_at,
+        updated_at,
+        last_activity_at
+      FROM sessions
+      ORDER BY last_activity_at DESC`
+    );
+
+    return res.json({
+      sessions: sessionsResult.rows,
+    });
+  } catch (error) {
+    console.error("Error fetching sessions:", error);
+    return res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
 // GET /api/v1/sessions/:sessionKey/tasks - Fetch all tasks for a session
 router.get("/:sessionKey/tasks", async (req, res) => {
   try {
@@ -129,6 +166,12 @@ router.post("/:sessionKey/tasks", async (req, res) => {
         blocked_by,
         JSON.stringify(metadata),
       ]
+    );
+
+    // Update session's last_activity_at timestamp
+    await query(
+      `UPDATE sessions SET last_activity_at = NOW() WHERE id = $1`,
+      [sessionId]
     );
 
     return res.status(201).json({

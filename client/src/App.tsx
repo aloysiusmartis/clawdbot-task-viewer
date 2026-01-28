@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Task } from "./types/task";
 import { TaskCard } from "./components/TaskCard";
 import { TaskDetailDialog } from "./components/TaskDetailDialog";
+import { SessionsSidebar } from "./components/SessionsSidebar";
 
 interface HealthStatus {
   status: string;
@@ -119,7 +120,7 @@ function App() {
   const completedTasks = mockTasks.filter(t => t.status === 'completed');
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-background">
       <header className="border-b">
         <div className="container mx-auto px-4 py-4">
           <h1 className="text-2xl font-bold text-foreground">
@@ -128,7 +129,10 @@ function App() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <div className="flex flex-1 overflow-hidden">
+        <SessionsSidebar />
+
+        <main className="flex-1 overflow-y-auto px-4 py-8 max-w-6xl">
         <div className="grid gap-6">
           <section className="rounded-lg border bg-card p-6">
             <h2 className="mb-4 text-xl font-semibold">System Status</h2>
@@ -227,6 +231,7 @@ function App() {
           />
         </div>
       </main>
+      </div>
     </div>
   );
 }
