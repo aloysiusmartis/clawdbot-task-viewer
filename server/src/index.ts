@@ -38,14 +38,11 @@ app.get("/api/health", async (_req, res) => {
   });
 });
 
-// API routes placeholder (to be implemented in future beads)
-app.get("/api/v1/sessions", (_req, res) => {
-  res.json({ sessions: [], message: "Sessions endpoint - to be implemented" });
-});
+// Import API routes
+import sessionsRouter from "./routes/sessions.js";
 
-app.get("/api/v1/tasks", (_req, res) => {
-  res.json({ tasks: [], message: "Tasks endpoint - to be implemented" });
-});
+// API routes
+app.use("/api/v1/sessions", sessionsRouter);
 
 // Serve static files in production
 if (process.env.NODE_ENV === "production") {
