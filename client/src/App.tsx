@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { KanbanBoard } from "./components/KanbanBoard";
-import type { Task, TaskListResponse } from "./types/task";
+import { Task } from "./types/task";
+import { TaskCard } from "./components/TaskCard";
+import { TaskDetailDialog } from "./components/TaskDetailDialog";
 
 interface HealthStatus {
   status: string;
@@ -11,18 +12,96 @@ interface HealthStatus {
   };
 }
 
-// Default session key for demo purposes
-// In production, this would come from URL params or user input
-const DEFAULT_SESSION_KEY = "default-session";
+// Mock tasks with dependencies for demonstration
+const mockTasks: Task[] = [
+  {
+    id: "task-1",
+    session_id: "session-1",
+    task_number: 1,
+    subject: "Setup database schema",
+    description: "Create initial database tables and indexes",
+    active_form: null,
+    status: "completed",
+    priority: 2,
+    blocks: ["task-2", "task-3"],
+    blocked_by: [],
+    metadata: {},
+    created_at: "2026-01-27T10:00:00Z",
+    updated_at: "2026-01-27T11:00:00Z",
+    completed_at: "2026-01-27T11:00:00Z",
+  },
+  {
+    id: "task-2",
+    session_id: "session-1",
+    task_number: 2,
+    subject: "Implement API endpoints",
+    description: "Create REST API endpoints for task management",
+    active_form: "Implementing API endpoints",
+    status: "in_progress",
+    priority: 3,
+    blocks: ["task-4"],
+    blocked_by: ["task-1"],
+    metadata: {},
+    created_at: "2026-01-27T10:30:00Z",
+    updated_at: "2026-01-27T12:00:00Z",
+    completed_at: null,
+  },
+  {
+    id: "task-3",
+    session_id: "session-1",
+    task_number: 3,
+    subject: "Add authentication middleware",
+    description: "Implement JWT-based authentication",
+    active_form: null,
+    status: "pending",
+    priority: 1,
+    blocks: [],
+    blocked_by: ["task-1"],
+    metadata: {},
+    created_at: "2026-01-27T10:45:00Z",
+    updated_at: "2026-01-27T10:45:00Z",
+    completed_at: null,
+  },
+  {
+    id: "task-4",
+    session_id: "session-1",
+    task_number: 4,
+    subject: "Build frontend UI components",
+    description: "Create React components for task visualization",
+    active_form: null,
+    status: "pending",
+    priority: 2,
+    blocks: [],
+    blocked_by: ["task-2"],
+    metadata: {},
+    created_at: "2026-01-27T11:00:00Z",
+    updated_at: "2026-01-27T11:00:00Z",
+    completed_at: null,
+  },
+  {
+    id: "task-5",
+    session_id: "session-1",
+    task_number: 5,
+    subject: "Write unit tests",
+    description: "Add test coverage for all components",
+    active_form: null,
+    status: "pending",
+    priority: 1,
+    blocks: [],
+    blocked_by: [],
+    metadata: {},
+    created_at: "2026-01-27T11:15:00Z",
+    updated_at: "2026-01-27T11:15:00Z",
+    completed_at: null,
+  },
+];
 
 function App() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [sessionKey, setSessionKey] = useState<string>(DEFAULT_SESSION_KEY);
-  const [lastFetch, setLastFetch] = useState<Date | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Fetch health status on mount
   useEffect(() => {
     fetch("/api/health")
       .then((res) => res.json())
@@ -30,42 +109,14 @@ function App() {
       .catch((err: Error) => setError(err.message));
   }, []);
 
-  // Fetch tasks from the API
-  const fetchTasks = async (key: string) => {
-    try {
-      const response = await fetch(`/api/v1/sessions/${key}/tasks`);
-
-      if (response.status === 404) {
-        // Session doesn't exist yet, return empty tasks
-        setTasks([]);
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch tasks: ${response.statusText}`);
-      }
-
-      const data: TaskListResponse = await response.json();
-      setTasks(data.tasks);
-      setLastFetch(new Date());
-    } catch (err) {
-      console.error("Error fetching tasks:", err);
-      // Don't set error state to avoid disrupting the UI
-    }
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setDialogOpen(true);
   };
 
-  // Poll for tasks every 2 seconds
-  useEffect(() => {
-    // Initial fetch
-    fetchTasks(sessionKey);
-
-    // Set up polling interval
-    const interval = setInterval(() => {
-      fetchTasks(sessionKey);
-    }, 2000); // Poll every 2 seconds
-
-    return () => clearInterval(interval);
-  }, [sessionKey]);
+  const pendingTasks = mockTasks.filter(t => t.status === 'pending');
+  const inProgressTasks = mockTasks.filter(t => t.status === 'in_progress');
+  const completedTasks = mockTasks.filter(t => t.status === 'completed');
 
   return (
     <div className="min-h-screen bg-background">
@@ -109,31 +160,71 @@ function App() {
           </section>
 
           <section className="rounded-lg border bg-card p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Kanban Board</h2>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="sessionKey" className="text-sm font-medium">
-                    Session:
-                  </label>
-                  <input
-                    id="sessionKey"
-                    type="text"
-                    value={sessionKey}
-                    onChange={(e) => setSessionKey(e.target.value)}
-                    className="rounded border px-2 py-1 text-sm"
-                    placeholder="Enter session key"
-                  />
+            <h2 className="mb-4 text-xl font-semibold">Kanban Board</h2>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="rounded-lg bg-muted p-4">
+                <h3 className="mb-3 font-medium">Pending ({pendingTasks.length})</h3>
+                <div className="space-y-3">
+                  {pendingTasks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No pending tasks
+                    </p>
+                  ) : (
+                    pendingTasks.map(task => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onClick={() => handleTaskClick(task)}
+                      />
+                    ))
+                  )}
                 </div>
-                {lastFetch && (
-                  <span className="text-xs text-muted-foreground">
-                    Updated: {lastFetch.toLocaleTimeString()}
-                  </span>
-                )}
+              </div>
+              <div className="rounded-lg bg-muted p-4">
+                <h3 className="mb-3 font-medium">In Progress ({inProgressTasks.length})</h3>
+                <div className="space-y-3">
+                  {inProgressTasks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No active tasks
+                    </p>
+                  ) : (
+                    inProgressTasks.map(task => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onClick={() => handleTaskClick(task)}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+              <div className="rounded-lg bg-muted p-4">
+                <h3 className="mb-3 font-medium">Completed ({completedTasks.length})</h3>
+                <div className="space-y-3">
+                  {completedTasks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No completed tasks
+                    </p>
+                  ) : (
+                    completedTasks.map(task => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onClick={() => handleTaskClick(task)}
+                      />
+                    ))
+                  )}
+                </div>
               </div>
             </div>
-            <KanbanBoard tasks={tasks} />
           </section>
+
+          <TaskDetailDialog
+            task={selectedTask}
+            allTasks={mockTasks}
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+          />
         </div>
       </main>
     </div>
