@@ -1,19 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Task, TaskFile } from '../types/task';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Lock, AlertCircle, FileText } from 'lucide-react';
+import { X, Lock, AlertCircle, FileText, Edit2 } from 'lucide-react';
+import { TaskEditDialog } from './TaskEditDialog';
 
 interface TaskDetailDialogProps {
   task: Task | null;
   allTasks: Task[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onTaskUpdated?: (task: Task) => void;
 }
 
-export function TaskDetailDialog({ task, allTasks, open, onOpenChange }: TaskDetailDialogProps) {
+export function TaskDetailDialog({ task, allTasks, open, onOpenChange, onTaskUpdated }: TaskDetailDialogProps) {
   const [files, setFiles] = useState<TaskFile[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
   const [filesError, setFilesError] = useState<string | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (open && task) {
@@ -46,6 +49,18 @@ export function TaskDetailDialog({ task, allTasks, open, onOpenChange }: TaskDet
 
   const getTaskById = (id: string) => allTasks.find(t => t.id === id);
 
+  const handleTaskUpdated = (updatedTask: Task) => {
+    if (onTaskUpdated) {
+      onTaskUpdated(updatedTask);
+    }
+    // Refresh files after task update
+    fetchFiles();
+  };
+
+  const handleFilesUpdated = (updatedFiles: TaskFile[]) => {
+    setFiles(updatedFiles);
+  };
+
   const blockedByTasks = task.blocked_by.map(id => getTaskById(id)).filter(Boolean) as Task[];
   const blocksTasks = task.blocks.map(id => getTaskById(id)).filter(Boolean) as Task[];
 
@@ -54,14 +69,26 @@ export function TaskDetailDialog({ task, allTasks, open, onOpenChange }: TaskDet
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <Dialog.Content className="fixed left-[50%] top-[50%] z-50 max-h-[85vh] w-[90vw] max-w-[600px] translate-x-[-50%] translate-y-[-50%] rounded-lg border bg-white p-6 shadow-lg overflow-y-auto">
-          <Dialog.Title className="text-xl font-semibold mb-4">
+          <div className="flex items-start justify-between mb-4">
+          <Dialog.Title className="text-xl font-semibold">
             Task #{task.task_number}: {task.subject}
           </Dialog.Title>
+          {task.status === 'pending' && (
+            <button
+              onClick={() => setEditDialogOpen(true)}
+              className="flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm font-medium"
+              title="Edit pending task"
+            >
+              <Edit2 className="w-4 h-4" />
+              Edit
+            </button>
+          )}
+        </div>
 
-          <Dialog.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </Dialog.Close>
+        <Dialog.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </Dialog.Close>
 
           <div className="space-y-4">
             <div>
@@ -182,6 +209,17 @@ export function TaskDetailDialog({ task, allTasks, open, onOpenChange }: TaskDet
           </div>
         </Dialog.Content>
       </Dialog.Portal>
+
+      {task.status === 'pending' && (
+        <TaskEditDialog
+          task={task}
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          onTaskUpdated={handleTaskUpdated}
+          files={files}
+          onFilesUpdated={handleFilesUpdated}
+        />
+      )}
     </Dialog.Root>
   );
 }

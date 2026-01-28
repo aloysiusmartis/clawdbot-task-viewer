@@ -116,6 +116,11 @@ function App() {
     setDialogOpen(true);
   };
 
+  const handleTaskUpdated = (updatedTask: Task) => {
+    // Update the selected task
+    setSelectedTask(updatedTask);
+  };
+
   const pendingTasks = mockTasks.filter(t => t.status === 'pending');
   const inProgressTasks = mockTasks.filter(t => t.status === 'in_progress');
   const completedTasks = mockTasks.filter(t => t.status === 'completed');
@@ -231,6 +236,7 @@ function App() {
             allTasks={mockTasks}
             open={dialogOpen}
             onOpenChange={setDialogOpen}
+            onTaskUpdated={handleTaskUpdated}
           />
         </div>
       </main>
