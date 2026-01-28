@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, X, RefreshCw, Plus, ChevronDown } from 'lucide-react';
+import { Search, X, RefreshCw, Plus, ChevronDown, Check } from 'lucide-react';
 import type { Task } from '../types/task';
 import type { Session } from '../types/session';
 import { cn } from '../lib/utils';
@@ -16,6 +16,8 @@ interface HeaderProps {
     };
   } | null;
   isLoading?: boolean;
+  selectedSession: string | null;
+  onSessionChange: (sessionKey: string | null) => void;
 }
 
 // Health LED component
@@ -161,8 +163,13 @@ function HeaderSearch({ onTaskSelect }: { onTaskSelect: (task: Task) => void }) 
   );
 }
 
-// Session dropdown component
-function SessionDropdown() {
+// Session filter dropdown component
+interface SessionDropdownProps {
+  selectedSession: string | null;
+  onSessionChange: (sessionKey: string | null) => void;
+}
+
+function SessionDropdown({ selectedSession, onSessionChange }: SessionDropdownProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -214,18 +221,34 @@ function SessionDropdown() {
     return lastActivity > oneHourAgo;
   };
 
+  const handleSelect = (sessionKey: string | null) => {
+    onSessionChange(sessionKey);
+    setIsOpen(false);
+  };
+
+  const selectedSessionData = sessions.find(s => s.session_key === selectedSession);
+  const displayName = selectedSessionData 
+    ? (selectedSessionData.name || selectedSessionData.session_key.slice(0, 8) + '...')
+    : 'All Sessions';
+
   return (
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 border border-input rounded-md bg-background hover:bg-accent text-sm transition-colors"
+        className={cn(
+          "flex items-center gap-2 px-3 py-1.5 border rounded-md bg-background hover:bg-accent text-sm transition-colors min-w-32",
+          selectedSession ? "border-primary/50" : "border-input"
+        )}
       >
-        <span className="hidden sm:inline">Sessions</span>
-        <ChevronDown className="w-4 h-4" />
+        <span className="truncate max-w-24">{displayName}</span>
+        <span className="text-xs text-muted-foreground">
+          ({sessions.length})
+        </span>
+        <ChevronDown className="w-4 h-4 flex-shrink-0" />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1 w-64 bg-card border border-border rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
+        <div className="absolute right-0 mt-1 w-72 bg-card border border-border rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
           {loading ? (
             <div className="p-3 text-center text-sm text-muted-foreground">
               Loading sessions...
@@ -234,34 +257,70 @@ function SessionDropdown() {
             <div className="p-3 text-center text-sm text-destructive">
               {error}
             </div>
-          ) : sessions.length === 0 ? (
-            <div className="p-3 text-center text-sm text-muted-foreground">
-              No active sessions
-            </div>
           ) : (
             <ul className="divide-y">
-              {sessions.map((session) => (
-                <li key={session.id}>
-                  <button className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2 group">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-foreground truncate">
-                        {session.name || session.session_key}
-                      </div>
-                      {session.project_path && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          {session.project_path}
-                        </div>
-                      )}
+              {/* All Sessions option */}
+              <li>
+                <button 
+                  onClick={() => handleSelect(null)}
+                  className={cn(
+                    "w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2",
+                    !selectedSession && "bg-accent"
+                  )}
+                >
+                  <div className="flex-1">
+                    <div className="font-medium text-foreground">
+                      All Sessions
                     </div>
-                    {isRecentlyActive(session.last_activity_at) && (
-                      <div
-                        className="flex-shrink-0 w-2 h-2 rounded-full bg-green-500"
-                        title="Recently active (within last hour)"
-                      />
-                    )}
-                  </button>
+                    <div className="text-xs text-muted-foreground">
+                      Show tasks from all sessions
+                    </div>
+                  </div>
+                  {!selectedSession && (
+                    <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                  )}
+                </button>
+              </li>
+              
+              {sessions.length === 0 ? (
+                <li className="p-3 text-center text-sm text-muted-foreground">
+                  No active sessions
                 </li>
-              ))}
+              ) : (
+                sessions.map((session) => (
+                  <li key={session.id}>
+                    <button 
+                      onClick={() => handleSelect(session.session_key)}
+                      className={cn(
+                        "w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2",
+                        selectedSession === session.session_key && "bg-accent"
+                      )}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-foreground truncate">
+                          {session.name || session.session_key}
+                        </div>
+                        {session.project_path && (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {session.project_path}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {isRecentlyActive(session.last_activity_at) && (
+                          <div
+                            className="w-2 h-2 rounded-full bg-green-500"
+                            title="Recently active (within last hour)"
+                          />
+                        )}
+                        {selectedSession === session.session_key && (
+                          <Check className="w-4 h-4 text-primary" />
+                        )}
+                      </div>
+                    </button>
+                  </li>
+                ))
+              )}
             </ul>
           )}
         </div>
@@ -276,6 +335,8 @@ export function Header({
   onCreateTask,
   health,
   isLoading,
+  selectedSession,
+  onSessionChange,
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 border-b bg-background">
@@ -318,8 +379,11 @@ export function Header({
             />
           </button>
 
-          {/* Sessions dropdown */}
-          <SessionDropdown />
+          {/* Sessions filter dropdown */}
+          <SessionDropdown 
+            selectedSession={selectedSession}
+            onSessionChange={onSessionChange}
+          />
 
           {/* New Task button */}
           <button

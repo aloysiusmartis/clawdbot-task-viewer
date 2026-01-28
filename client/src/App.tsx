@@ -32,7 +32,7 @@ function App() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
-  const [selectedSession, _setSelectedSession] = useState<string | null>(null);
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
 
   // Fetch all tasks from all sessions
   const fetchAllTasks = useCallback(async () => {
@@ -205,6 +205,8 @@ function App() {
         onCreateTask={() => setCreateDialogOpen(true)}
         health={health}
         isLoading={tasksLoading}
+        selectedSession={selectedSession}
+        onSessionChange={setSelectedSession}
       />
 
       <main className="flex-1 overflow-x-auto overflow-y-hidden p-4">
