@@ -1,5 +1,14 @@
 export type TaskStatus = 'pending' | 'in_progress' | 'completed';
 
+export interface TaskFile {
+  id: string;
+  task_id: string;
+  filename: string;
+  content_type: string | null;
+  size_bytes: number | null;
+  created_at: string;
+}
+
 export interface Task {
   id: string;
   session_id: string;
@@ -15,6 +24,7 @@ export interface Task {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  files?: TaskFile[];
 }
 
 export interface Session {

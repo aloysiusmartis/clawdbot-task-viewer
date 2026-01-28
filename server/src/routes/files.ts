@@ -5,6 +5,33 @@ import type { TaskFile } from "../types.js";
 
 const router = express.Router();
 
+// GET /api/v1/tasks/:taskId/files - List all files for a task
+router.get("/tasks/:taskId/files", async (req, res): Promise<void> => {
+  try {
+    const { taskId } = req.params;
+
+    // Query the database to get all files for this task
+    const filesResult = await query<TaskFile>(
+      `SELECT id, task_id, filename, content_type, size_bytes, file_path, created_at
+       FROM task_files
+       WHERE task_id = $1
+       ORDER BY created_at ASC`,
+      [taskId]
+    );
+
+    res.json({
+      taskId,
+      files: filesResult.rows,
+      count: filesResult.rows.length,
+    });
+  } catch (error) {
+    console.error("Error listing files:", error);
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
 // GET /api/v1/tasks/:taskId/files/:fileId - Serve a file attachment
 router.get("/tasks/:taskId/files/:fileId", async (req, res): Promise<void> => {
   try {

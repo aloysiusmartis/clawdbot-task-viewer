@@ -1,6 +1,7 @@
-import { Task } from '../types/task';
+import { useState, useEffect } from 'react';
+import { Task, TaskFile } from '../types/task';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Lock, AlertCircle } from 'lucide-react';
+import { X, Lock, AlertCircle, FileText } from 'lucide-react';
 
 interface TaskDetailDialogProps {
   task: Task | null;
@@ -10,6 +11,37 @@ interface TaskDetailDialogProps {
 }
 
 export function TaskDetailDialog({ task, allTasks, open, onOpenChange }: TaskDetailDialogProps) {
+  const [files, setFiles] = useState<TaskFile[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [filesError, setFilesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && task) {
+      fetchFiles();
+    }
+  }, [open, task?.id]);
+
+  const fetchFiles = async () => {
+    if (!task) return;
+
+    setFilesLoading(true);
+    setFilesError(null);
+
+    try {
+      const response = await fetch(`/api/v1/tasks/${task.id}/files`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch files');
+      }
+      const data = await response.json();
+      setFiles(data.files || []);
+    } catch (error) {
+      console.error('Error fetching files:', error);
+      setFilesError('Failed to load file attachments');
+    } finally {
+      setFilesLoading(false);
+    }
+  };
+
   if (!task) return null;
 
   const getTaskById = (id: string) => allTasks.find(t => t.id === id);
@@ -102,6 +134,39 @@ export function TaskDetailDialog({ task, allTasks, open, onOpenChange }: TaskDet
                 </p>
               </div>
             )}
+
+            <div className="border-t pt-4">
+              <h3 className="font-medium text-sm mb-2 flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                File Attachments
+              </h3>
+              {filesLoading ? (
+                <p className="text-sm text-gray-500">Loading files...</p>
+              ) : filesError ? (
+                <p className="text-sm text-red-600">{filesError}</p>
+              ) : files.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">No file attachments</p>
+              ) : (
+                <div className="space-y-2">
+                  {files.map((file) => (
+                    <a
+                      key={file.id}
+                      href={`/api/v1/tasks/${task.id}/files/${file.id}`}
+                      className="flex items-center gap-2 p-2 rounded border border-gray-200 hover:bg-gray-50 text-sm text-blue-600 hover:text-blue-800"
+                      download
+                    >
+                      <FileText className="w-4 h-4 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{file.filename}</p>
+                        <p className="text-xs text-gray-500">
+                          {file.content_type || 'application/octet-stream'}
+                        </p>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <div className="border-t pt-4">
               <h3 className="font-medium text-sm text-gray-500 mb-1">Created</h3>
