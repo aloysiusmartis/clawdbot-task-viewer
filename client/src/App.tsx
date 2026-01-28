@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { Task } from "./types/task";
 import { TaskCard } from "./components/TaskCard";
 import { TaskDetailDialog } from "./components/TaskDetailDialog";
+import { TaskCreateDialog } from "./components/TaskCreateDialog";
 import { SessionsSidebar } from "./components/SessionsSidebar";
 import { TaskSearch } from "./components/TaskSearch";
+import { Plus } from "lucide-react";
 
 interface HealthStatus {
   status: string;
@@ -103,6 +105,8 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [tasks, setTasks] = useState(mockTasks);
 
   useEffect(() => {
     fetch("/api/health")
@@ -121,9 +125,14 @@ function App() {
     setSelectedTask(updatedTask);
   };
 
-  const pendingTasks = mockTasks.filter(t => t.status === 'pending');
-  const inProgressTasks = mockTasks.filter(t => t.status === 'in_progress');
-  const completedTasks = mockTasks.filter(t => t.status === 'completed');
+  const handleTaskCreated = (newTask: Task) => {
+    // Add the new task to the tasks list
+    setTasks([...tasks, newTask]);
+  };
+
+  const pendingTasks = tasks.filter(t => t.status === 'pending');
+  const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
+  const completedTasks = tasks.filter(t => t.status === 'completed');
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -140,6 +149,16 @@ function App() {
 
         <main className="flex-1 overflow-y-auto px-4 py-8 max-w-6xl">
         <div className="grid gap-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Tasks</h2>
+            <button
+              onClick={() => setCreateDialogOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              New Task
+            </button>
+          </div>
           <TaskSearch onTaskSelect={handleTaskClick} />
 
           <section className="rounded-lg border bg-card p-6">
@@ -233,10 +252,17 @@ function App() {
 
           <TaskDetailDialog
             task={selectedTask}
-            allTasks={mockTasks}
+            allTasks={tasks}
             open={dialogOpen}
             onOpenChange={setDialogOpen}
             onTaskUpdated={handleTaskUpdated}
+          />
+
+          <TaskCreateDialog
+            open={createDialogOpen}
+            onOpenChange={setCreateDialogOpen}
+            onTaskCreated={handleTaskCreated}
+            allTasks={tasks}
           />
         </div>
       </main>
