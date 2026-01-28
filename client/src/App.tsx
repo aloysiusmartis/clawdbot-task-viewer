@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
+import { DragDropContext, DropResult } from "@hello-pangea/dnd";
 import { Task, Session } from "./types/task";
-import { TaskCard } from "./components/TaskCard";
 import { TaskDetailDialog } from "./components/TaskDetailDialog";
 import { TaskCreateDialog } from "./components/TaskCreateDialog";
 import { SessionsSidebar } from "./components/SessionsSidebar";
 import { TaskSearch } from "./components/TaskSearch";
+import { KanbanColumn } from "./components/KanbanColumn";
 import { Plus, RefreshCw } from "lucide-react";
 
 interface HealthStatus {
@@ -109,6 +110,45 @@ function App() {
     setSelectedTask(null);
   };
 
+  const handleDragEnd = (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+
+    // If dropped outside of a droppable area
+    if (!destination) {
+      return;
+    }
+
+    // If dropped in the same position
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    // Reorder tasks within the same column (for now)
+    // Full cross-column drag-drop would require status update via API
+    if (destination.droppableId === source.droppableId) {
+      const status = source.droppableId as 'pending' | 'in_progress' | 'completed';
+      const columnTasks = tasks.filter(t => t.status === status);
+      const draggedTask = columnTasks.find(t => t.id === draggableId);
+
+      if (draggedTask) {
+        const newTasks = columnTasks.filter(t => t.id !== draggableId);
+        newTasks.splice(destination.index, 0, draggedTask);
+
+        const updatedTasks = tasks.map(t => {
+          if (t.status === status) {
+            return { ...t };
+          }
+          return t;
+        });
+
+        setTasks(updatedTasks);
+      }
+    }
+  };
+
   const pendingTasks = tasks.filter(t => t.status === 'pending');
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
   const completedTasks = tasks.filter(t => t.status === 'completed');
@@ -185,62 +225,28 @@ function App() {
 
           <section className="rounded-lg border bg-card p-6">
             <h2 className="mb-4 text-xl font-semibold">Kanban Board</h2>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="rounded-lg bg-muted p-4">
-                <h3 className="mb-3 font-medium">Pending ({pendingTasks.length})</h3>
-                <div className="space-y-3">
-                  {pendingTasks.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No pending tasks
-                    </p>
-                  ) : (
-                    pendingTasks.map(task => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        onClick={() => handleTaskClick(task)}
-                      />
-                    ))
-                  )}
-                </div>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div className="grid grid-cols-3 gap-4 h-96">
+                <KanbanColumn
+                  status="pending"
+                  tasks={pendingTasks}
+                  totalTasks={tasks.length}
+                  onTaskClick={handleTaskClick}
+                />
+                <KanbanColumn
+                  status="in_progress"
+                  tasks={inProgressTasks}
+                  totalTasks={tasks.length}
+                  onTaskClick={handleTaskClick}
+                />
+                <KanbanColumn
+                  status="completed"
+                  tasks={completedTasks}
+                  totalTasks={tasks.length}
+                  onTaskClick={handleTaskClick}
+                />
               </div>
-              <div className="rounded-lg bg-muted p-4">
-                <h3 className="mb-3 font-medium">In Progress ({inProgressTasks.length})</h3>
-                <div className="space-y-3">
-                  {inProgressTasks.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No active tasks
-                    </p>
-                  ) : (
-                    inProgressTasks.map(task => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        onClick={() => handleTaskClick(task)}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-              <div className="rounded-lg bg-muted p-4">
-                <h3 className="mb-3 font-medium">Completed ({completedTasks.length})</h3>
-                <div className="space-y-3">
-                  {completedTasks.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No completed tasks
-                    </p>
-                  ) : (
-                    completedTasks.map(task => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        onClick={() => handleTaskClick(task)}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
+            </DragDropContext>
           </section>
 
           <TaskDetailDialog
