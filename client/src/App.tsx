@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
-import { Task, Session } from "./types/task";
+import { Task, Session, TaskFile } from "./types/task";
 import { TaskCard } from "./components/TaskCard";
 import { TaskDetailDialog } from "./components/TaskDetailDialog";
 import { TaskCreateDialog } from "./components/TaskCreateDialog";
+import { TaskEditDialog } from "./components/TaskEditDialog";
 import { SessionsSidebar } from "./components/SessionsSidebar";
 import { TaskSearch } from "./components/TaskSearch";
 import { Plus, RefreshCw } from "lucide-react";
@@ -22,6 +23,9 @@ function App() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editDialogFiles, setEditDialogFiles] = useState<any[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
   const [selectedSession, _setSelectedSession] = useState<string | null>(null);
@@ -107,6 +111,47 @@ function App() {
     fetchAllTasks();
     setDialogOpen(false);
     setSelectedTask(null);
+  };
+
+  const handleEditTaskHover = (task: Task) => {
+    setEditingTask(task);
+    setEditDialogOpen(true);
+  };
+
+  const handleDeleteTaskHover = async (task: Task) => {
+    // Show confirmation before deleting
+    if (confirm(`Delete task #${task.task_number}? This cannot be undone.`)) {
+      try {
+        const response = await fetch(`/api/v1/sessions/tasks/${task.id}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok) {
+          alert('Failed to delete task');
+          return;
+        }
+        fetchAllTasks();
+      } catch (err) {
+        console.error('Error deleting task:', err);
+        alert('Error deleting task');
+      }
+    }
+  };
+
+  const handleEditDialogUpdate = (task: Task) => {
+    // Update the task in state and refresh
+    setTasks(prev => prev.map(t => t.id === task.id ? task : t));
+    fetchAllTasks();
+    setEditDialogOpen(false);
+  };
+
+  const handleEditDialogDelete = () => {
+    fetchAllTasks();
+    setEditDialogOpen(false);
+    setEditingTask(null);
+  };
+
+  const handleEditDialogFilesUpdate = (files: TaskFile[]) => {
+    setEditDialogFiles(files);
   };
 
   const pendingTasks = tasks.filter(t => t.status === 'pending');
@@ -199,6 +244,8 @@ function App() {
                         key={task.id}
                         task={task}
                         onClick={() => handleTaskClick(task)}
+                        onEdit={() => handleEditTaskHover(task)}
+                        onDelete={() => handleDeleteTaskHover(task)}
                       />
                     ))
                   )}
@@ -217,6 +264,8 @@ function App() {
                         key={task.id}
                         task={task}
                         onClick={() => handleTaskClick(task)}
+                        onEdit={() => handleEditTaskHover(task)}
+                        onDelete={() => handleDeleteTaskHover(task)}
                       />
                     ))
                   )}
@@ -235,6 +284,8 @@ function App() {
                         key={task.id}
                         task={task}
                         onClick={() => handleTaskClick(task)}
+                        onEdit={() => handleEditTaskHover(task)}
+                        onDelete={() => handleDeleteTaskHover(task)}
                       />
                     ))
                   )}
@@ -258,6 +309,18 @@ function App() {
             onTaskCreated={handleTaskCreated}
             allTasks={tasks}
           />
+
+          {editingTask && (
+            <TaskEditDialog
+              task={editingTask}
+              open={editDialogOpen}
+              onOpenChange={setEditDialogOpen}
+              onTaskUpdated={handleEditDialogUpdate}
+              onTaskDeleted={handleEditDialogDelete}
+              files={editDialogFiles}
+              onFilesUpdated={handleEditDialogFilesUpdate}
+            />
+          )}
         </div>
       </main>
       </div>
