@@ -56,17 +56,22 @@
       "id": "clawdbot-task-viewer-403",
       "worktree_path": "/Users/admin/clawd/clawdbot-task-viewer/.worktrees/clawdbot-task-viewer-403",
       "branch_name": "bead/clawdbot-task-viewer-403",
-      "status": "in_progress",
+      "status": "pending",
       "started_at": "2026-01-28T07:17:47Z",
       "tests_passed": false,
       "retry_count": 0,
       "log_file": "/Users/admin/clawd/clawdbot-task-viewer/logs/bead-clawdbot-task-viewer-403.log"
+    },
+    "clawdbot-task-viewer-l5u": {
+      "status": "merged",
+      "merged_at": "2026-01-28T15:21:43Z",
+      "merge_commit": "b4d7e16bf2148c5e817737e2a0cbf20ce80a13c4"
     }
   },
   "execution": {
     "started_at": "2026-01-28T06:41:07Z",
-    "last_updated": "2026-01-28T07:17:39Z",
-    "iteration": 2,
+    "last_updated": "2026-01-28T15:21:51Z",
+    "iteration": 8,
     "max_parallel": 3,
     "active_subagents": 0
   }

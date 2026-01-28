@@ -357,4 +357,114 @@ router.post("/:sessionKey/tasks", async (req, res) => {
   }
 });
 
+// PATCH /api/v1/tasks/:taskId - Update a pending task
+router.patch("/tasks/:taskId", async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { subject, description, priority } = req.body;
+
+    // First, verify the task exists and is in pending status
+    const taskCheck = await query<Task>(
+      "SELECT id, status FROM tasks WHERE id = $1",
+      [taskId]
+    );
+
+    if (taskCheck.rows.length === 0) {
+      return res.status(404).json({
+        error: "Task not found",
+      });
+    }
+
+    if (taskCheck.rows[0].status !== "pending") {
+      return res.status(400).json({
+        error: "Only pending tasks can be edited",
+      });
+    }
+
+    // Build dynamic update query
+    const updates: string[] = [];
+    const params: unknown[] = [];
+    let paramCount = 1;
+
+    if (subject !== undefined) {
+      updates.push(`subject = $${paramCount}`);
+      params.push(subject);
+      paramCount++;
+    }
+
+    if (description !== undefined) {
+      updates.push(`description = $${paramCount}`);
+      params.push(description);
+      paramCount++;
+    }
+
+    if (priority !== undefined) {
+      updates.push(`priority = $${paramCount}`);
+      params.push(priority);
+      paramCount++;
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        error: "No fields to update",
+      });
+    }
+
+    updates.push(`updated_at = NOW()`);
+    params.push(taskId);
+
+    const taskResult = await query<Task>(
+      `UPDATE tasks SET ${updates.join(", ")} WHERE id = $${paramCount} RETURNING *`,
+      params
+    );
+
+    return res.json({
+      task: taskResult.rows[0],
+    });
+  } catch (error) {
+    console.error("Error updating task:", error);
+    return res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
+// DELETE /api/v1/tasks/:taskId - Delete a pending task
+router.delete("/tasks/:taskId", async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    // First, verify the task exists and is in pending status
+    const taskCheck = await query<Task>(
+      "SELECT id, status FROM tasks WHERE id = $1",
+      [taskId]
+    );
+
+    if (taskCheck.rows.length === 0) {
+      return res.status(404).json({
+        error: "Task not found",
+      });
+    }
+
+    if (taskCheck.rows[0].status !== "pending") {
+      return res.status(400).json({
+        error: "Only pending tasks can be deleted",
+      });
+    }
+
+    // Delete associated files first (cascades via FK, but let's be explicit)
+    await query("DELETE FROM task_files WHERE task_id = $1", [taskId]);
+
+    // Delete the task
+    await query("DELETE FROM tasks WHERE id = $1", [taskId]);
+
+    return res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting task:", error);
+    return res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
 export default router;
