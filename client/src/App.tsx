@@ -3,6 +3,7 @@ import { Task } from "./types/task";
 import { TaskCard } from "./components/TaskCard";
 import { TaskDetailDialog } from "./components/TaskDetailDialog";
 import { SessionsSidebar } from "./components/SessionsSidebar";
+import { TaskSearch } from "./components/TaskSearch";
 
 interface HealthStatus {
   status: string;
@@ -134,6 +135,8 @@ function App() {
 
         <main className="flex-1 overflow-y-auto px-4 py-8 max-w-6xl">
         <div className="grid gap-6">
+          <TaskSearch onTaskSelect={handleTaskClick} />
+
           <section className="rounded-lg border bg-card p-6">
             <h2 className="mb-4 text-xl font-semibold">System Status</h2>
             {error ? (
