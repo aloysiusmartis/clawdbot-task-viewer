@@ -156,23 +156,28 @@
 
 ---
 
-## Critical Issues Found
+## Issues Found & Status
 
-### 🔴 P0 - Backend API Missing (US-008 BE)
+### ✅ P0 - Backend API Missing (US-008 BE) — FIXED
 **Impact:** Edit/Delete functionality doesn't work
 **Root cause:** PATCH/DELETE routes never implemented
-**Files affected:** `server/src/routes/sessions.ts` or new `tasks.ts`
-**Fix:** Add PATCH/DELETE endpoints for tasks
+**Fix:** Added PATCH/DELETE endpoints for tasks
+**Commit:** `13639b9` (2026-01-28)
 
-### 🟡 P1 - Ngrok Tunnel Broken (US-007)
+### ⚠️ P1 - Ngrok Tunnel (US-007) — REQUIRES SETUP
 **Impact:** No public URL access
-**Root cause:** Stale tunnel causing "already exists" error
-**Fix:** Kill existing tunnels on startup, add retry logic
+**Root cause:** Ngrok now requires free account + authtoken
+**Fix:** 
+1. Sign up at https://dashboard.ngrok.com/signup
+2. Get authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
+3. Set env var: `NGROK_AUTHTOKEN=<your-token>` before `docker compose up`
+**Commit:** `aecd490` (2026-01-28)
 
-### 🟡 P1 - File Attachments Error (US-005 FE)
+### ✅ P1 - File Attachments Error (US-005 FE) — FIXED
 **Impact:** "Failed to load file attachments" in detail panel
-**Root cause:** UUID parsing error in logs
-**Fix:** Debug file loading route
+**Root cause:** App using mock data with fake IDs instead of real task UUIDs
+**Fix:** Removed mock data, app now fetches real tasks from API
+**Commit:** `aecd490` (2026-01-28)
 
 ---
 
